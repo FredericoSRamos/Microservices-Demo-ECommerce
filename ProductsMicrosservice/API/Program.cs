@@ -38,10 +38,27 @@ using var scope = app.Services.CreateScope();
 
 var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
 var productService = scope.ServiceProvider.GetRequiredService<CreateProductService>();
+var scopeFactory = app.Services.GetRequiredService<IServiceScopeFactory>();
 
 bus.Consume<Product>("create_product_queue", async product =>
 {
     await productService.CreateProduct(product);
+});
+
+bus.Consume<IEnumerable<Product>>("decrease_stock_queue", async products =>
+{
+    using var innerScope = scopeFactory.CreateScope();
+    var productsRepository = innerScope.ServiceProvider.GetRequiredService<IRepository<Product>>();
+    
+    foreach (var p in products)
+    {
+        var dbProduct = await productsRepository.Read(p.Id);
+        if (dbProduct != null)
+        {
+            dbProduct.Amount -= p.Amount;
+            await productsRepository.Update(dbProduct);
+        }
+    }
 });
 
 app.UseHttpsRedirection();

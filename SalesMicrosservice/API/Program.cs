@@ -1,4 +1,6 @@
+using Domain.Contracts;
 using Infrastructure.Context;
+using Infrastructure.MessageQueue;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +10,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 
 builder.Services.AddControllers();
+
+builder.Services.AddSingleton<IMessageBus>(sp =>
+    new RabbitMQMessageBus(builder.Configuration.GetValue<string>("RabbitMQ:ConnectionString"))
+);
+
 
 builder.Services.AddDbContext<SalesContext>(options =>
 {

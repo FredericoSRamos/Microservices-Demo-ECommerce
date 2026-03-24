@@ -1,5 +1,6 @@
 using Application.DTOs;
 using Application.Factories;
+using Domain.Contracts;
 using Domain.Entities;
 using Infrastructure.Contracts;
 using Microsoft.AspNetCore.Mvc;
@@ -13,12 +14,14 @@ public class SalesController : ControllerBase
     private readonly IRepository<Sale> _salesRepository;
     private readonly SaleFactory _saleFactory;
     private readonly HttpClient _stockHttpClient;
+    private readonly IMessageBus _bus;
     
-    public SalesController(IRepository<Sale> salesRepository, SaleFactory saleFactory, IHttpClientFactory httpClientFactory)
+    public SalesController(IRepository<Sale> salesRepository, SaleFactory saleFactory, IHttpClientFactory httpClientFactory, IMessageBus bus)
     {
         _salesRepository = salesRepository;
         _saleFactory = saleFactory;
         _stockHttpClient = httpClientFactory.CreateClient("StockAPI");
+        _bus = bus;
     }
     
     #region CRUD
@@ -133,6 +136,13 @@ public class SalesController : ControllerBase
             SaleProducts = productList.Products
         };
         
-        return await Post(saleData);
+        var result = await Post(saleData);
+
+        if (result is OkObjectResult)
+        {
+            await _bus.PublishAsync("decrease_stock_queue", productList.Products);
+        }
+
+        return result;
     }
 }
